@@ -11,4 +11,4 @@ parser.add_argument("port", type=int, help="the port of the host")
 
 if __name__ == "__main__":
     args = parser.parse_args()
-    client.main(host=args.host, port=args.port)
+    client.run(host=args.host, port=args.port)
