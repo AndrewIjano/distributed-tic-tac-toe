@@ -17,6 +17,12 @@ class Dt3pAdapter:
 
     def list_active_users(self):
         response = self._request(f"LIST")
+        users_raw = (
+            line.split() for line in response.decode("ascii").strip().split("\n")
+        )
+        return [
+            (username, "free" if is_free else "busy") for username, is_free in users_raw
+        ]
 
     def _request(self, message: str):
         print(f"[Dt3pAdapter] sending message: '{message}'")

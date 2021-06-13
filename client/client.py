@@ -15,7 +15,10 @@ def run(host, port):
             user, password = args
             server.login(user, password)
         if command == Command.LIST.value:
-            server.list_active_users()
+            active_users = server.list_active_users()
+            print("status | username")
+            print("-----------------")
+            print("\n".join(f"  {status}   {user}" for user, status in active_users))
         if command == Command.END.value:
             break
 

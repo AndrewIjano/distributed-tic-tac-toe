@@ -53,9 +53,7 @@ class RequestHandler(BaseRequestHandler):
         active_users = self.users_controller.get_active_users()
 
         return bytes(
-            " ".join(
-                f"{len(u.username)} {u.username} {int(u.is_free)}" for u in active_users
-            ),
+            "".join(f"{u.username} {int(u.is_free)}\n" for u in active_users),
             "ascii",
         )
 
