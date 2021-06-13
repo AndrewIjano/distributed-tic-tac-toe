@@ -17,7 +17,11 @@ class RequestHandler(BaseRequestHandler):
 
     def _get_command_handler(self, command):
         print("New command", command)
-        return {"USER": self._handle_add_user}[command]
+        return {
+            "USER": self._handle_add_user,
+            "LGIN": self._handle_login,
+            "LIST": self._handle_list_active_users,
+        }[command]
 
     def _handle_add_user(self) -> bytes:
         user_len = self._get_int(5)
@@ -29,6 +33,31 @@ class RequestHandler(BaseRequestHandler):
 
         print(f"New user '{username}' with password '{password}'")
         return b"201 CREATED"
+
+    def _handle_login(self) -> bytes:
+        user_len = self._get_int(5)
+        username = self._get_str(user_len)
+        pass_len = self._get_int(5)
+        password = self._get_str(pass_len)
+
+        user = self.users_controller.get_user(username)
+
+        if user.password == password:
+            print(f"New login '{username}' with password '{password}'")
+            self.users_controller.set_user_active(username)
+            return b"200 OK"
+
+        return b"401 UNAUTHENTICATED"
+
+    def _handle_list_active_users(self) -> bytes:
+        active_users = self.users_controller.get_active_users()
+
+        return bytes(
+            " ".join(
+                f"{len(u.username)} {u.username} {int(u.is_free)}" for u in active_users
+            ),
+            "ascii",
+        )
 
     def _get_int(self, data_size: int) -> int:
         return int(self._get_str(data_size))

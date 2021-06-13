@@ -1,4 +1,4 @@
-from typing import Callable, List
+from typing import Callable, List, Union
 from server.models.base import BaseModel
 
 import json
@@ -28,10 +28,27 @@ class DatabaseAdapter:
             items = self._get_items(file)
             return Model(**items.get(key))
 
+    def read_many(self, key_name: str, key_value: str, Model: Callable[..., BaseModel]):
+        with open(self.path, "r") as file:
+            items = self._get_items(file)
+            return [
+                Model(**item) for item in items.values() if item[key_name] == key_value
+            ]
+
     def read_all(self, Model: Callable[..., BaseModel]) -> List[BaseModel]:
         with open(self.path, "r") as file:
             items = self._get_items(file)
             return [Model(**item) for item in items.values()]
+
+    def update_one(
+        self, key: str, update_key: str, update_value: Union[str, bool]
+    ) -> BaseModel:
+        with open(self.path, "r+") as file:
+            items = self._get_items(file)
+            item = items.get(key)
+            item[update_key] = update_value
+            items[key] = item
+            self._set_items(file, items)
 
     @staticmethod
     def _get_items(file):

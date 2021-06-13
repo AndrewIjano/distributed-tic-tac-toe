@@ -16,3 +16,9 @@ class UsersController:
 
     def get_users(self) -> List[User]:
         return self.db.read_all(Model=User)
+
+    def get_active_users(self) -> List[User]:
+        return self.db.read_many(key_name="is_active", key_value=True, Model=User)
+
+    def set_user_active(self, username: str) -> User:
+        self.db.update_one(key=username, update_key="is_active", update_value=True)

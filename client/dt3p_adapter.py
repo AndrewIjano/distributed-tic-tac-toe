@@ -6,7 +6,17 @@ class Dt3pAdapter:
         self.address = (host, port)
 
     def add_user(self, user, password):
-        self._request(f"USER {len(user):03d} {user} {len(password):03d} {password}")
+        response = self._request(
+            f"USER {len(user):03d} {user} {len(password):03d} {password}"
+        )
+
+    def login(self, user, password):
+        response = self._request(
+            f"LGIN {len(user):03d} {user} {len(password):03d} {password}"
+        )
+
+    def list_active_users(self):
+        response = self._request(f"LIST")
 
     def _request(self, message: str):
         print(f"[Dt3pAdapter] sending message: '{message}'")
@@ -15,3 +25,4 @@ class Dt3pAdapter:
             s.sendall(message.encode("ascii"))
             response = s.recv(1024)
         print(f"[Dt3pAdapter] received: {response}")
+        return response

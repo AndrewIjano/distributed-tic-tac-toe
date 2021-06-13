@@ -11,6 +11,11 @@ def run(host, port):
         if command == Command.ADD_USER.value:
             user, password = args
             server.add_user(user, password)
+        if command == Command.LOGIN.value:
+            user, password = args
+            server.login(user, password)
+        if command == Command.LIST.value:
+            server.list_active_users()
         if command == Command.END.value:
             break
 

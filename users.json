@@ -1,1 +1,1 @@
-{"and": {"username": "and", "password": "123"}, "an": {"username": "an", "password": "111"}, "aksk": {"username": "aksk", "password": "1919"}, "aiai": {"username": "aiai", "password": "191919"}, "aaa": {"username": "aaa", "password": "123"}}
+{"and": {"username": "and", "password": "123", "is_active": true, "is_free": true}, "abc": {"username": "abc", "password": "123", "is_active": true, "is_free": true}}
