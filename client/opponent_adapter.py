@@ -6,16 +6,16 @@ class OpponentAdapter:
         self.address = (host, port)
 
     def begin_game(self):
-        return self._request("BGIN")
+        return self._request("BGIN\n")
 
     def send_move(self, row, col):
-        return self._request(f"SEND {row} {col}")
+        return self._request(f"SEND {row} {col}\n")
 
     def get_delay(self):
-        return self._request("DLAY")
+        return self._request("DLAY\n")
 
     def end_game(self):
-        return self._request("ENDD")
+        return self._request("ENDD\n")
 
     def _request(self, message: str):
         print(f"[Dt3pAdapter] sending message: '{message}'")

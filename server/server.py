@@ -1,5 +1,8 @@
 from server.controllers.users_controller import UsersController
 
+import socket
+
+from random import random
 from socketserver import BaseRequestHandler, ThreadingTCPServer
 from typing import Callable
 
@@ -62,7 +65,7 @@ class RequestHandler(BaseRequestHandler):
     def _handle_get_user_address(self, username) -> bytes:
         user = self.users_controller.get_user(username)
         if not user.is_active:
-            return b"402 NOT ACTIVE"
+            return b"402 NOT ACTIVE\n"
 
         return bytes(f"200 OK\t{user.host} {user.port}\n", "ascii")
 
