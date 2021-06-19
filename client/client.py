@@ -8,6 +8,7 @@ from client.dt3p_adapter import Dt3pAdapter
 from client.opponent_adapter import OpponentAdapter
 from client.commands import Command
 from client.exceptions import UserNotActive
+from client.board import Board, Mark
 
 
 class TicTacToePlayer:
@@ -46,44 +47,47 @@ class TicTacToePlayer:
         while self.is_running:
             try:
                 connection, client_address = self.listen_sock.accept()
-                print("accepted")
             except socket.timeout:
                 continue
 
             data = connection.makefile().readline().strip()
-            print("received", data)
             if self.state == "auth" and data == "BGIN":
-                self.opponent_sock = connection
                 print("\rDeseja iniciar uma partida? [y/N] ", end="")
                 self.state = "invited"
+                
+                self.opponent_sock = connection
                 self.opponent_listening_loop = Thread(
                     target=self.listen_opponent, args=()
                 )
                 self.opponent_listening_loop.start()
                 continue
-
-            if self.state == "waiting" and data == "":
-                pass
             connection.close()
 
     def listen_opponent(self):
         while data := self.opponent_sock.makefile().readline().strip():
             print("data", data)
             if self.state == "inviting":
+                if data == "400 NO":
+                    print(f"game refused :( {data}")
+                    continue
+
                 if data == "204 WAIT":
                     print("waiting...")
                     self.state = "waiting"
+                    self.mark = Mark.O
                 if data == "205 PLAY":
                     self.state = "playing"
-                if data == "400 NO":
-                    print(f"game refused :( {data}")
+                    self.mark = Mark.X
+                self.board = Board(self.mark)
+                
 
             if self.state == "waiting":
                 command, *args = data.split()
                 if command == "SEND":
                     row, col = args
-                    print(f"row {row} col {col}")
                     self.state = "playing"
+                    self.board.add_opponent_move(int(row), int(col))
+                    self.board.show()
 
     def listen_input(self):
         while self.is_running:
@@ -141,9 +145,12 @@ class TicTacToePlayer:
             if is_first:
                 self.opponent_sock.sendall(b"204 WAIT\n")
                 self.state = "playing"
+                self.mark = Mark.X
             else:
                 self.opponent_sock.sendall(b"205 PLAY\n")
                 self.state = "waiting"
+                self.mark = Mark.O
+            self.board = Board(self.mark)
             return
 
         self.opponent_sock.sendall(b"400 NO\n")
@@ -189,8 +196,10 @@ class TicTacToePlayer:
             print("user is not active!")
 
     def _handle_send(self, row, col):
+        self.board.add_move(int(row), int(col))
         self.opponent_sock.sendall(bytes(f"SEND {row} {col}\n", "ascii"))
         self.state = "waiting"
+        self.board.show()
 
     def _handle_exit(self):
         self.is_running = False

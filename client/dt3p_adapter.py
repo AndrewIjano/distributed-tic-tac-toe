@@ -50,10 +50,11 @@ class Dt3pAdapter:
         return self._request("ENDD\n")
 
     def _request(self, message: str):
-        print(f"[Dt3pAdapter] sending message: '{message}'")
+        encoded_message = message.encode("ascii")
+        print(f"[Dt3pAdapter] sending message: '{encoded_message}'")
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.connect(self.address)
-            s.sendall(message.encode("ascii"))
+            s.sendall(encoded_message)
             response = s.makefile().readline()
         print(f"[Dt3pAdapter] received: {response}")
         return response
