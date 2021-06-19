@@ -8,6 +8,8 @@ class User(BaseModel):
         password: str,
         is_active: bool = False,
         is_free: bool = True,
+        host: str = "",
+        port: str = "",
     ) -> None:
         super().__init__()
 
@@ -15,6 +17,8 @@ class User(BaseModel):
         self.password = password
         self.is_active = is_active
         self.is_free = is_free
+        self.host = host
+        self.port = port
 
     @property
     def key(self):

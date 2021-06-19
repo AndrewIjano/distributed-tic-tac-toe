@@ -1,0 +1,7 @@
+FROM python:3.9
+
+COPY . /usr/src/client
+WORKDIR /usr/src/client
+
+EXPOSE 5000/tcp
+EXPOSE 5001/tcp

@@ -8,7 +8,7 @@ import json
 
 class DatabaseAdapter:
     def __init__(self, model_name: str) -> None:
-        self.path = f"{model_name}.json"
+        self.path = f"db/{model_name}.json"
         self._initialize_db()
 
     def _initialize_db(self):

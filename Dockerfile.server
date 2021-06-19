@@ -1,0 +1,8 @@
+FROM python:3.9
+
+COPY . /usr/src/server/
+WORKDIR /usr/src/server
+
+EXPOSE 8000/tcp
+
+CMD ["python", "server.py", "5000"]

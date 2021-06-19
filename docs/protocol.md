@@ -34,3 +34,6 @@ DELAY
 END
 LOGOUT
 EXIT
+
+5000 -> send
+5001 -> listen

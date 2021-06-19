@@ -10,9 +10,9 @@ class RequestHandler(BaseRequestHandler):
         super().__init__(*args)
 
     def handle(self) -> None:
-        command = self._get_str(4)
+        command, *args = self.request.makefile().readline().split()
         command_handler = self._get_command_handler(command)
-        response = command_handler()
+        response = command_handler(*args)
         self.request.sendall(response)
 
     def _get_command_handler(self, command):
@@ -20,32 +20,34 @@ class RequestHandler(BaseRequestHandler):
         return {
             "USER": self._handle_add_user,
             "LGIN": self._handle_login,
+            "LOUT": self._handle_logout,
             "LIST": self._handle_list_active_users,
+            "ADDR": self._handle_get_user_address,
         }[command]
 
-    def _handle_add_user(self) -> bytes:
-        user_len = self._get_int(5)
-        username = self._get_str(user_len)
-        pass_len = self._get_int(5)
-        password = self._get_str(pass_len)
-
+    def _handle_add_user(self, username, password) -> bytes:
         self.users_controller.add_user(username, password)
 
         print(f"New user '{username}' with password '{password}'")
         return b"201 CREATED"
 
-    def _handle_login(self) -> bytes:
-        user_len = self._get_int(5)
-        username = self._get_str(user_len)
-        pass_len = self._get_int(5)
-        password = self._get_str(pass_len)
-
+    def _handle_login(self, username, password, host, port) -> bytes:
         user = self.users_controller.get_user(username)
-
         if user.password == password:
             print(f"New login '{username}' with password '{password}'")
             self.users_controller.set_user_active(username)
-            return b"200 OK"
+            self.users_controller.update_user_address(username, host, port)
+            return b"200 OK\n"
+
+        return b"401 UNAUTHENTICATED"
+
+    def _handle_logout(self, username, password) -> bytes:
+        user = self.users_controller.get_user(username)
+        if user.password == password:
+            print(f"New logout '{username}' with password '{password}'")
+            self.users_controller.set_user_active(username)
+            self.users_controller.update_user_address(username, "", "")
+            return b"200 OK\n"
 
         return b"401 UNAUTHENTICATED"
 
@@ -53,9 +55,16 @@ class RequestHandler(BaseRequestHandler):
         active_users = self.users_controller.get_active_users()
 
         return bytes(
-            "".join(f"{u.username} {int(u.is_free)}\n" for u in active_users),
+            "".join(f"{u.username} {int(u.is_free)}\t" for u in active_users),
             "ascii",
         )
+
+    def _handle_get_user_address(self, username) -> bytes:
+        user = self.users_controller.get_user(username)
+        if not user.is_active:
+            return b"402 NOT ACTIVE"
+
+        return bytes(f"200 OK\t{user.host} {user.port}\n", "ascii")
 
     def _get_int(self, data_size: int) -> int:
         return int(self._get_str(data_size))
