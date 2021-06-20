@@ -26,6 +26,7 @@ class TicTacToePlayer:
 
         self.state = "unauth"
         self.is_running = True
+        self.is_playing = False
 
     def _get_listen_sock(self):
         host = socket.gethostbyname(socket.gethostname())
@@ -54,7 +55,7 @@ class TicTacToePlayer:
             if self.state == "auth" and data == "BGIN":
                 print("\rDeseja iniciar uma partida? [y/N] ", end="")
                 self.state = "invited"
-                
+
                 self.opponent_sock = connection
                 self.opponent_listening_loop = Thread(
                     target=self.listen_opponent, args=()
@@ -64,8 +65,9 @@ class TicTacToePlayer:
             connection.close()
 
     def listen_opponent(self):
-        while data := self.opponent_sock.makefile().readline().strip():
-            print("data", data)
+        self.is_playing = True
+        while self.is_playing:
+            data = self.opponent_sock.makefile().readline().strip()
             if self.state == "inviting":
                 if data == "400 NO":
                     print(f"game refused :( {data}")
@@ -79,15 +81,20 @@ class TicTacToePlayer:
                     self.state = "playing"
                     self.mark = Mark.X
                 self.board = Board(self.mark)
-                
 
             if self.state == "waiting":
                 command, *args = data.split()
                 if command == "SEND":
                     row, col = args
-                    self.state = "playing"
                     self.board.add_opponent_move(int(row), int(col))
                     self.board.show()
+                    if self.board.is_opponent_winner():
+                        print("You lose!")
+                        self.opponent_sock.close()
+                        self.is_playing = False
+                        self.state = "auth"
+                    else:
+                        self.state = "playing"
 
     def listen_input(self):
         while self.is_running:
@@ -198,8 +205,19 @@ class TicTacToePlayer:
     def _handle_send(self, row, col):
         self.board.add_move(int(row), int(col))
         self.opponent_sock.sendall(bytes(f"SEND {row} {col}\n", "ascii"))
-        self.state = "waiting"
         self.board.show()
+        if self.board.is_player_winner():
+            print("You win!")
+            self.opponent_sock.close()
+            self.state = "auth"
+            self.is_playing = False
+        elif self.board.is_tied():
+            print("It's a tie!")
+            self.opponent_sock.close()
+            self.state = "auth"
+            self.is_playing = False
+        else:
+            self.state = "waiting"
 
     def _handle_exit(self):
         self.is_running = False
