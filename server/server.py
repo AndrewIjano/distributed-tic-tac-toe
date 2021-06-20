@@ -1,4 +1,5 @@
 from server.controllers.users_controller import UsersController
+from server.heartbeat_service import HeartbeatService
 
 import socket
 
@@ -38,7 +39,7 @@ class RequestHandler(BaseRequestHandler):
 
     def _handle_login(self, username, password, host, port) -> bytes:
         user = self.users_controller.get_user(username)
-        if user.password == password:
+        if user is not None and user.password == password:
             print(f"New login '{username}' with password '{password}'")
             self.users_controller.set_user_active(username)
             self.users_controller.update_user_address(username, host, port)
@@ -99,6 +100,7 @@ class TicTacToeServer(ThreadingTCPServer):
         RequestHandlerClass: Callable[..., RequestHandler],
     ) -> None:
         super().__init__(server_address, RequestHandlerClass)
+        HeartbeatService().start()
         print("Server started")
 
 

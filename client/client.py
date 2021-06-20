@@ -74,6 +74,9 @@ class TicTacToeClient:
                     )
                     self.opponent_listening_loop.start()
                     continue
+
+                if data == "HTBT":
+                    connection.sendall(b"200 OK\n")
             connection.close()
 
     def listen_opponent(self):
@@ -180,10 +183,13 @@ class TicTacToeClient:
 
     def _handle_login(self, user, password):
         host, port = self.address
-        self.server.login(user, password, host, port)
-        self.user = user
-        self.password = password
-        self.state = State.LOGGED_IN
+        success = self.server.login(user, password, host, port)
+        if success:
+            self.user = user
+            self.password = password
+            self.state = State.LOGGED_IN
+        else:
+            print("Login failed")
 
     def _handle_logout(self):
         self.server.logout(self.user, self.password)

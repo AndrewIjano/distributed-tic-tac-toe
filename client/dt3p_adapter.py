@@ -14,6 +14,7 @@ class Dt3pAdapter:
         response = self._request(
             f"LGIN {username} {password} {host} {port}\n"
         )
+        return response == "200 OK"
     
     def logout(self, username, password):
         response = self._request(
@@ -55,6 +56,6 @@ class Dt3pAdapter:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.connect(self.address)
             s.sendall(encoded_message)
-            response = s.makefile().readline()
+            response = s.makefile().readline().strip()
         print(f"[Dt3pAdapter] received: {response}")
         return response
