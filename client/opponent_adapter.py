@@ -26,6 +26,10 @@ class OpponentAdapter:
 
     def refuse_game(self):
         self._send(b"RFSD\t\n")
+    
+    def end_game(self):
+        self._send(b"ENDD\t\n")
+        self.close_connection()
 
     def send_ping(self):
         self._send(b"PING\t\n")

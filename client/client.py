@@ -35,7 +35,6 @@ class TicTacToeClient:
 
         self.state = State.LOGGED_OUT
         self.is_running = True
-        self.is_playing = False
 
     def _get_listen_sock(self):
         host = socket.gethostbyname(socket.gethostname())
@@ -78,8 +77,7 @@ class TicTacToeClient:
             connection.close()
 
     def listen_opponent(self):
-        self.is_playing = True
-        while self.is_playing:
+        while self.opponent.is_connected:
             command, args = self.opponent.get_command()
 
             if command == "PING":
@@ -89,7 +87,6 @@ class TicTacToeClient:
             if command == "PONG":
                 self.opponent.receive_pong()
                 continue
-
 
             if self.state == State.INVITING:
                 if command == "ACPT":
@@ -113,10 +110,13 @@ class TicTacToeClient:
                     if self.board.is_opponent_winner():
                         print("You lose!")
                         self.opponent.close_connection()
-                        self.is_playing = False
                         self.state = State.LOGGED_IN
                     else:
                         self.state = State.PLAYING
+
+                if command == "ENDD":
+                    self.opponent.close_connection()
+                    self.state = State.LOGGED_IN
 
     def listen_input(self):
         while self.is_running:
@@ -141,9 +141,8 @@ class TicTacToeClient:
             Command.ADD_USER: self._handle_add_user,
             Command.LOGIN: self._handle_login,
             Command.EXIT: self._handle_exit,
-            Command.DEFAULT: self._handle_default,
             Command.SKIP: self._handle_skip,
-        }.get(Command(command))(*args)
+        }.get(Command(command), self._handle_default)(*args)
 
     def _handle_auth_command(self, command, *args):
         return {
@@ -152,17 +151,16 @@ class TicTacToeClient:
             Command.BEGIN: self._handle_begin,
             Command.LOGOUT: self._handle_logout,
             Command.EXIT: self._handle_exit,
-            Command.DEFAULT: self._handle_default,
             Command.SKIP: self._handle_skip,
-        }.get(Command(command))(*args)
+        }.get(Command(command), self._handle_default)(*args)
 
     def _handle_playing_command(self, command, *args):
         return {
             Command.SEND: self._handle_send,
             Command.DELAY: self._handle_delay,
-            Command.DEFAULT: self._handle_default,
+            Command.END: self._handle_end,
             Command.SKIP: self._handle_skip,
-        }.get(Command(command))(*args)
+        }.get(Command(command), self._handle_default)(*args)
 
     def _handle_waiting_command(self, command, *args):
         pass
@@ -214,7 +212,7 @@ class TicTacToeClient:
         for user, status in active_users:
             print(f"  {status}   {user}")
         print("-----------------")
-    
+
     def _handle_leaders(self):
         leaders = self.server.list_leaders()
         print("username | points")
@@ -244,22 +242,24 @@ class TicTacToeClient:
         if self.board.is_player_winner():
             print("You win!")
             self.opponent.close_connection()
-            self.is_playing = False
             self.server.send_game_result(self.user, "aaa", is_tie=False)
             self.state = State.LOGGED_IN
         elif self.board.is_tied():
             print("It's a tie!")
             self.opponent.close_connection()
-            self.is_playing = False
             self.server.send_game_result(self.user, "aaa", is_tie=True)
             self.state = State.LOGGED_IN
         else:
             self.state = State.WAITING
-    
+
     def _handle_delay(self):
-        print(f"Current measured latency:") 
+        print(f"Current measured latency:")
         for delay in self.opponent.delays:
             print(f"  {delay: 4.3f}ms")
+
+    def _handle_end(self):
+        self.opponent.end_game()
+        self.state = State.LOGGED_IN
 
     def _handle_exit(self):
         self.is_running = False
@@ -268,7 +268,7 @@ class TicTacToeClient:
         pass
 
     def _handle_default(self, *args):
-        print("Unknown command!")
+        print("Invalid command!")
 
     def _get_command(self):
         if self.state in (State.WAITING, State.INVITING):
