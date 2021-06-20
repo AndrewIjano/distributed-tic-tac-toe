@@ -28,6 +28,15 @@ class Dt3pAdapter:
         return [
             (username, "free" if is_free else "busy") for username, is_free in users_raw
         ]
+    
+    def list_leaders(self):
+        response = self._request(f"LEAD\n")
+        users_raw = (
+            line.split() for line in response.strip().split("\t")
+        )
+        return [
+            (username, int(points)) for username, points in users_raw
+        ]
 
     def get_user_address(self, username):
         response = self._request(f"ADDR {username}\n")
@@ -37,17 +46,8 @@ class Dt3pAdapter:
             return (host, int(port_str))
         raise UserNotActive()
 
-    def begin_game(self):
-        return self._request("BGIN\n")
-
-    def send_move(self, row, col):
-        return self._request(f"SEND {row} {col}\n")
-
-    def get_delay(self):
-        return self._request("DLAY\n")
-
-    def end_game(self):
-        return self._request("ENDD\n")
+    def send_game_result(self, username, opponent, is_tie):
+        self._request(f"RSLT {username} {opponent} {int(is_tie)}")
 
     def _request(self, message: str):
         encoded_message = message.encode("ascii")

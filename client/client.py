@@ -1,6 +1,8 @@
 from threading import Thread
 from random import random
 
+from enum import Enum
+
 import socket
 import sys
 
@@ -11,12 +13,13 @@ from client.exceptions import UserNotActive
 from client.board import Board, Mark
 
 
-class TicTacToePlayer:
-    def __init__(self) -> None:
-        self.state = "unauth"
-        self.is_playing = False
-
-        pass
+class State(Enum):
+    LOGGED_OUT = "logged out"
+    LOGGED_IN = "logged in"
+    INVITED = "invited"
+    PLAYING = "playing"
+    WAITING = "waiting"
+    INVITING = "inviting"
 
 
 class TicTacToeClient:
@@ -32,7 +35,7 @@ class TicTacToeClient:
         self.connection_listening_loop = Thread(target=self.listen_connection, args=())
         self.input_listening_loop = Thread(target=self.listen_input, args=())
 
-        self.state = "unauth"
+        self.state = State.LOGGED_OUT
         self.is_running = True
         self.is_playing = False
 
@@ -60,16 +63,17 @@ class TicTacToeClient:
                 continue
 
             data = connection.makefile().readline().strip()
-            if self.state == "auth" and data == "BGIN":
-                print("\rDeseja iniciar uma partida? [y/N] ", end="")
-                self.state = "invited"
+            if self.state == State.LOGGED_IN:
+                if data == "BGIN":
+                    print("\rDeseja iniciar uma partida? [y/N] ", end="")
+                    self.state = State.INVITED
 
-                self.opponent = OpponentAdapter(connection)
-                self.opponent_listening_loop = Thread(
-                    target=self.listen_opponent, args=()
-                )
-                self.opponent_listening_loop.start()
-                continue
+                    self.opponent = OpponentAdapter(connection)
+                    self.opponent_listening_loop = Thread(
+                        target=self.listen_opponent, args=()
+                    )
+                    self.opponent_listening_loop.start()
+                    continue
             connection.close()
 
     def listen_opponent(self):
@@ -77,21 +81,21 @@ class TicTacToeClient:
         while self.is_playing:
             command, args = self.opponent.get_command()
 
-            if self.state == "inviting":
+            if self.state == State.INVITING:
                 if command == "ACPT":
                     action, *_ = args
                     if action == "WAIT":
                         print("waiting...")
-                        self.state = "waiting"
                         self.mark = Mark.O
+                        self.state = State.WAITING
                     if action == "PLAY":
-                        self.state = "playing"
                         self.mark = Mark.X
+                        self.state = State.PLAYING
                     self.board = Board(self.mark)
                 else:
                     print(f"game refused :( {command}")
 
-            if self.state == "waiting":
+            if self.state == State.WAITING:
                 if command == "SEND":
                     self.board.add_opponent_move(*args)
                     self.board.show()
@@ -99,9 +103,9 @@ class TicTacToeClient:
                         print("You lose!")
                         self.opponent.close_connection()
                         self.is_playing = False
-                        self.state = "auth"
+                        self.state = State.LOGGED_IN
                     else:
-                        self.state = "playing"
+                        self.state = State.PLAYING
 
     def listen_input(self):
         while self.is_running:
@@ -113,12 +117,12 @@ class TicTacToeClient:
 
     def _handle_command(self, *input_command):
         return {
-            "unauth": self._handle_unauth_command,
-            "auth": self._handle_auth_command,
-            "invited": self._handle_invited_command,
-            "playing": self._handle_playing_command,
-            "waiting": self._handle_waiting_command,
-            "inviting": self._handle_inviting_command,
+            State.LOGGED_OUT: self._handle_unauth_command,
+            State.LOGGED_IN: self._handle_auth_command,
+            State.INVITED: self._handle_invited_command,
+            State.PLAYING: self._handle_playing_command,
+            State.WAITING: self._handle_waiting_command,
+            State.INVITING: self._handle_inviting_command,
         }.get(self.state)(*input_command)
 
     def _handle_unauth_command(self, command, *args):
@@ -133,6 +137,7 @@ class TicTacToeClient:
     def _handle_auth_command(self, command, *args):
         return {
             Command.LIST: self._handle_list,
+            Command.LEADERS: self._handle_leaders,
             Command.BEGIN: self._handle_begin,
             Command.LOGOUT: self._handle_logout,
             Command.EXIT: self._handle_exit,
@@ -158,17 +163,17 @@ class TicTacToeClient:
             is_player_first = random() > 0.5
             if is_player_first:
                 self.opponent.accept_game_and_wait()
-                self.state = "playing"
+                self.state = State.PLAYING
                 self.mark = Mark.X
             else:
                 self.opponent.accept_game_and_play()
-                self.state = "waiting"
+                self.state = State.WAITING
                 self.mark = Mark.O
             self.board = Board(self.mark)
             return
 
         self.opponent.refuse_game()
-        self.state = "unauth"
+        self.state = State.LOGGED_IN
 
     def _handle_add_user(self, user, password):
         self.server.add_user(user, password)
@@ -178,13 +183,13 @@ class TicTacToeClient:
         self.server.login(user, password, host, port)
         self.user = user
         self.password = password
-        self.state = "auth"
+        self.state = State.LOGGED_IN
 
     def _handle_logout(self):
         self.server.logout(self.user, self.password)
         self.user = None
         self.password = None
-        self.state = "unauth"
+        self.state = State.LOGGED_OUT
 
     def _handle_list(self):
         active_users = self.server.list_active_users()
@@ -193,6 +198,14 @@ class TicTacToeClient:
         for user, status in active_users:
             print(f"  {status}   {user}")
         print("-----------------")
+    
+    def _handle_leaders(self):
+        leaders = self.server.list_leaders()
+        print("username | points")
+        print("-----------------")
+        for user, points in leaders:
+            print(f"{user: <10}\t{points: <10}")
+        print("-----------------")
 
     def _handle_begin(self, opponent_username):
         try:
@@ -200,7 +213,7 @@ class TicTacToeClient:
             self.opponent = OpponentAdapter.from_address(opponent_address)
             self.opponent.begin_game()
 
-            self.state = "inviting"
+            self.state = State.INVITING
 
             self.opponent_listening_loop = Thread(target=self.listen_opponent, args=())
             self.opponent_listening_loop.start()
@@ -215,15 +228,17 @@ class TicTacToeClient:
         if self.board.is_player_winner():
             print("You win!")
             self.opponent.close_connection()
-            self.state = "auth"
             self.is_playing = False
+            self.server.send_game_result(self.user, "aaa", is_tie=False)
+            self.state = State.LOGGED_IN
         elif self.board.is_tied():
             print("It's a tie!")
             self.opponent.close_connection()
-            self.state = "auth"
             self.is_playing = False
+            self.server.send_game_result(self.user, "aaa", is_tie=True)
+            self.state = State.LOGGED_IN
         else:
-            self.state = "waiting"
+            self.state = State.WAITING
 
     def _handle_exit(self):
         self.is_running = False
@@ -235,10 +250,10 @@ class TicTacToeClient:
         print("Unknown command!")
 
     def _get_command(self):
-        if self.state in ("waiting", "inviting"):
+        if self.state in (State.WAITING, State.INVITING):
             return [""]
 
-        return input(f"{self.state}-JogoDaVelha> ").strip().split() or [""]
+        return input(f"({self.state.value})-JogoDaVelha> ").strip().split() or [""]
 
 
 def run(server_host, server_port):

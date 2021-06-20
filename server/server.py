@@ -25,7 +25,9 @@ class RequestHandler(BaseRequestHandler):
             "LGIN": self._handle_login,
             "LOUT": self._handle_logout,
             "LIST": self._handle_list_active_users,
+            "LEAD": self._handle_list_leaders,
             "ADDR": self._handle_get_user_address,
+            "RSLT": self._handle_send_game_result,
         }[command]
 
     def _handle_add_user(self, username, password) -> bytes:
@@ -48,7 +50,7 @@ class RequestHandler(BaseRequestHandler):
         user = self.users_controller.get_user(username)
         if user.password == password:
             print(f"New logout '{username}' with password '{password}'")
-            self.users_controller.set_user_active(username)
+            self.users_controller.set_user_inactive(username)
             self.users_controller.update_user_address(username, "", "")
             return b"200 OK\n"
 
@@ -58,7 +60,15 @@ class RequestHandler(BaseRequestHandler):
         active_users = self.users_controller.get_active_users()
 
         return bytes(
-            "".join(f"{u.username} {int(u.is_free)}\t" for u in active_users),
+            "\t".join(f"{u.username} {int(u.is_free)}" for u in active_users),
+            "ascii",
+        )
+
+    def _handle_list_leaders(self) -> bytes:
+        users = self.users_controller.get_users()
+        users_sorted_by_points = sorted(users, key=lambda u: u.points, reverse=True)
+        return bytes(
+            "\t".join(f"{u.username} {u.points}" for u in users_sorted_by_points),
             "ascii",
         )
 
@@ -68,6 +78,12 @@ class RequestHandler(BaseRequestHandler):
             return b"402 NOT ACTIVE\n"
 
         return bytes(f"200 OK\t{user.host} {user.port}\n", "ascii")
+
+    def _handle_send_game_result(self, username, opponent, is_tie):
+        if not is_tie:
+            self.users_controller.increment_user_point(username)
+        self.users_controller.set_user_free(username)
+        self.users_controller.set_user_free(opponent)
 
     def _get_int(self, data_size: int) -> int:
         return int(self._get_str(data_size))

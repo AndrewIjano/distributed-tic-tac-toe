@@ -10,6 +10,7 @@ class User(BaseModel):
         is_free: bool = True,
         host: str = "",
         port: str = "",
+        points: int = 0,
     ) -> None:
         super().__init__()
 
@@ -19,6 +20,8 @@ class User(BaseModel):
         self.is_free = is_free
         self.host = host
         self.port = port
+        self.points = points
+
 
     @property
     def key(self):

@@ -4,6 +4,7 @@ from enum import Enum
 class Command(Enum):
     ADD_USER = "adduser"
     LIST = "list"
+    LEADERS = "leaders"
     LOGIN = "login"
     LOGOUT = "logout"
     BEGIN = "begin"
