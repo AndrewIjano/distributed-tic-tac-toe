@@ -1,10 +1,16 @@
-from enum import Enum
+from threading import Thread
+from time import time, sleep
+from collections import deque
 import socket
+
+DELAY_INTERVAL = 1
 
 
 class OpponentAdapter:
     def __init__(self, connection) -> None:
         self.connection = connection
+        self.delays = deque([0, 0, 0])
+        self.is_connected = True
 
     def begin_game(self):
         self._send(b"BGIN\n")
@@ -21,11 +27,35 @@ class OpponentAdapter:
     def refuse_game(self):
         self._send(b"RFSD\t\n")
 
+    def send_ping(self):
+        self._send(b"PING\t\n")
+        self.start = time()
+
+    def send_pong(self):
+        self._send(b"PONG\t\n")
+    
+    def receive_pong(self):
+        new_measure = (time() - self.start) * 1000
+        self.delays.popleft()
+        self.delays.append(new_measure)
+
+
     def _send(self, message: bytes):
         self.connection.sendall(message)
 
+    def _receive(self) -> str:
+        return self.connection.makefile().readline()
+
+    def start_measure_delay(self):
+        Thread(target=self.send_pings).start()
+
+    def send_pings(self):
+        while self.is_connected:
+            self.send_ping()
+            sleep(DELAY_INTERVAL)
+
     def get_command(self):
-        conn_input = self.connection.makefile().readline().replace("\n", "")
+        conn_input = self._receive().replace("\n", "")
         if conn_input == "":
             return "", [""]
         command, args = conn_input.split("\t")
@@ -35,6 +65,7 @@ class OpponentAdapter:
         return response.split()[0] == "ACPT"
 
     def close_connection(self):
+        self.is_connected = False
         self.connection.close()
 
     @classmethod

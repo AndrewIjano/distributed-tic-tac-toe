@@ -9,6 +9,7 @@ class Command(Enum):
     LOGOUT = "logout"
     BEGIN = "begin"
     SEND = "send"
+    DELAY = "delay"
     END = "end"
     EXIT = "exit"
     DEFAULT = "default"

@@ -30,8 +30,6 @@ class TicTacToeClient:
         self.address = self.listen_sock.getsockname()
         print(self.address)
 
-        self.opponent_sock = None
-
         self.connection_listening_loop = Thread(target=self.listen_connection, args=())
         self.input_listening_loop = Thread(target=self.listen_input, args=())
 
@@ -84,6 +82,15 @@ class TicTacToeClient:
         while self.is_playing:
             command, args = self.opponent.get_command()
 
+            if command == "PING":
+                self.opponent.send_pong()
+                continue
+
+            if command == "PONG":
+                self.opponent.receive_pong()
+                continue
+
+
             if self.state == State.INVITING:
                 if command == "ACPT":
                     action, *_ = args
@@ -95,7 +102,8 @@ class TicTacToeClient:
                         self.mark = Mark.X
                         self.state = State.PLAYING
                     self.board = Board(self.mark)
-                else:
+                    self.opponent.start_measure_delay()
+                elif command == "RFSD":
                     print(f"game refused :( {command}")
 
             if self.state == State.WAITING:
@@ -151,6 +159,7 @@ class TicTacToeClient:
     def _handle_playing_command(self, command, *args):
         return {
             Command.SEND: self._handle_send,
+            Command.DELAY: self._handle_delay,
             Command.DEFAULT: self._handle_default,
             Command.SKIP: self._handle_skip,
         }.get(Command(command))(*args)
@@ -172,6 +181,7 @@ class TicTacToeClient:
                 self.opponent.accept_game_and_play()
                 self.state = State.WAITING
                 self.mark = Mark.O
+            self.opponent.start_measure_delay()
             self.board = Board(self.mark)
             return
 
@@ -245,6 +255,11 @@ class TicTacToeClient:
             self.state = State.LOGGED_IN
         else:
             self.state = State.WAITING
+    
+    def _handle_delay(self):
+        print(f"Current measured latency:") 
+        for delay in self.opponent.delays:
+            print(f"  {delay: 4.3f}ms")
 
     def _handle_exit(self):
         self.is_running = False
@@ -252,7 +267,7 @@ class TicTacToeClient:
     def _handle_skip(self):
         pass
 
-    def _handle_default(self):
+    def _handle_default(self, *args):
         print("Unknown command!")
 
     def _get_command(self):
