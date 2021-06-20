@@ -16,12 +16,12 @@ class Board:
 
     def add_move(self, row, col):
         print(f"[Board] add move row {row} col {col}")
-        self.board[row][col] = self.player_mark
+        self.board[int(row)][int(col)] = self.player_mark
         self.turns_count += 1
 
     def add_opponent_move(self, row, col):
         print(f"[Board] add opponent move row {row} col {col}")
-        self.board[row][col] = self.opponent_mark
+        self.board[int(row)][int(col)] = self.opponent_mark
         self.turns_count += 1
 
     def show(self):

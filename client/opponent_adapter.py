@@ -1,27 +1,44 @@
+from enum import Enum
 import socket
 
 
 class OpponentAdapter:
-    def __init__(self, host: str, port: int) -> None:
-        self.address = (host, port)
+    def __init__(self, connection) -> None:
+        self.connection = connection
 
     def begin_game(self):
-        return self._request("BGIN\n")
+        self._send(b"BGIN\n")
 
     def send_move(self, row, col):
-        return self._request(f"SEND {row} {col}\n")
+        self._send(bytes(f"SEND\t{row} {col}\n", "ascii"))
 
-    def get_delay(self):
-        return self._request("DLAY\n")
+    def accept_game_and_wait(self):
+        self._send(b"ACPT\tWAIT\n")
 
-    def end_game(self):
-        return self._request("ENDD\n")
+    def accept_game_and_play(self):
+        self._send(b"ACPT\tPLAY\n")
 
-    def _request(self, message: str):
-        print(f"[Dt3pAdapter] sending message: '{message}'")
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            s.connect(self.address)
-            s.sendall(message.encode("ascii"))
-            response = s.makefile().readline()
-        print(f"[Dt3pAdapter] received: {response}")
-        return response.strip()
+    def refuse_game(self):
+        self._send(b"RFSD\t\n")
+
+    def _send(self, message: bytes):
+        self.connection.sendall(message)
+
+    def get_command(self):
+        conn_input = self.connection.makefile().readline().replace("\n", "")
+        if conn_input == "":
+            return "", [""]
+        command, args = conn_input.split("\t")
+        return command, args.split()
+
+    def has_accepted_game(self, response):
+        return response.split()[0] == "ACPT"
+
+    def close_connection(self):
+        self.connection.close()
+
+    @classmethod
+    def from_address(cls, opponent_address):
+        connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        connection.connect(opponent_address)
+        return cls(connection)

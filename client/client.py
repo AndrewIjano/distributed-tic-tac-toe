@@ -12,6 +12,14 @@ from client.board import Board, Mark
 
 
 class TicTacToePlayer:
+    def __init__(self) -> None:
+        self.state = "unauth"
+        self.is_playing = False
+
+        pass
+
+
+class TicTacToeClient:
     def __init__(self, server_host, server_port) -> None:
         self.server = Dt3pAdapter(server_host, server_port)
 
@@ -56,7 +64,7 @@ class TicTacToePlayer:
                 print("\rDeseja iniciar uma partida? [y/N] ", end="")
                 self.state = "invited"
 
-                self.opponent_sock = connection
+                self.opponent = OpponentAdapter(connection)
                 self.opponent_listening_loop = Thread(
                     target=self.listen_opponent, args=()
                 )
@@ -67,30 +75,29 @@ class TicTacToePlayer:
     def listen_opponent(self):
         self.is_playing = True
         while self.is_playing:
-            data = self.opponent_sock.makefile().readline().strip()
-            if self.state == "inviting":
-                if data == "400 NO":
-                    print(f"game refused :( {data}")
-                    continue
+            command, args = self.opponent.get_command()
 
-                if data == "204 WAIT":
-                    print("waiting...")
-                    self.state = "waiting"
-                    self.mark = Mark.O
-                if data == "205 PLAY":
-                    self.state = "playing"
-                    self.mark = Mark.X
-                self.board = Board(self.mark)
+            if self.state == "inviting":
+                if command == "ACPT":
+                    action, *_ = args
+                    if action == "WAIT":
+                        print("waiting...")
+                        self.state = "waiting"
+                        self.mark = Mark.O
+                    if action == "PLAY":
+                        self.state = "playing"
+                        self.mark = Mark.X
+                    self.board = Board(self.mark)
+                else:
+                    print(f"game refused :( {command}")
 
             if self.state == "waiting":
-                command, *args = data.split()
                 if command == "SEND":
-                    row, col = args
-                    self.board.add_opponent_move(int(row), int(col))
+                    self.board.add_opponent_move(*args)
                     self.board.show()
                     if self.board.is_opponent_winner():
                         print("You lose!")
-                        self.opponent_sock.close()
+                        self.opponent.close_connection()
                         self.is_playing = False
                         self.state = "auth"
                     else:
@@ -148,19 +155,19 @@ class TicTacToePlayer:
 
     def _handle_invited_command(self, command):
         if command == "y":
-            is_first = random() > 0.5
-            if is_first:
-                self.opponent_sock.sendall(b"204 WAIT\n")
+            is_player_first = random() > 0.5
+            if is_player_first:
+                self.opponent.accept_game_and_wait()
                 self.state = "playing"
                 self.mark = Mark.X
             else:
-                self.opponent_sock.sendall(b"205 PLAY\n")
+                self.opponent.accept_game_and_play()
                 self.state = "waiting"
                 self.mark = Mark.O
             self.board = Board(self.mark)
             return
 
-        self.opponent_sock.sendall(b"400 NO\n")
+        self.opponent.refuse_game()
         self.state = "unauth"
 
     def _handle_add_user(self, user, password):
@@ -190,10 +197,8 @@ class TicTacToePlayer:
     def _handle_begin(self, opponent_username):
         try:
             opponent_address = self.server.get_user_address(opponent_username)
-
-            self.opponent_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self.opponent_sock.connect(opponent_address)
-            self.opponent_sock.sendall(b"BGIN\n")
+            self.opponent = OpponentAdapter.from_address(opponent_address)
+            self.opponent.begin_game()
 
             self.state = "inviting"
 
@@ -203,17 +208,18 @@ class TicTacToePlayer:
             print("user is not active!")
 
     def _handle_send(self, row, col):
-        self.board.add_move(int(row), int(col))
-        self.opponent_sock.sendall(bytes(f"SEND {row} {col}\n", "ascii"))
+        self.board.add_move(row, col)
+        self.opponent.send_move(row, col)
         self.board.show()
+
         if self.board.is_player_winner():
             print("You win!")
-            self.opponent_sock.close()
+            self.opponent.close_connection()
             self.state = "auth"
             self.is_playing = False
         elif self.board.is_tied():
             print("It's a tie!")
-            self.opponent_sock.close()
+            self.opponent.close_connection()
             self.state = "auth"
             self.is_playing = False
         else:
@@ -236,5 +242,5 @@ class TicTacToePlayer:
 
 
 def run(server_host, server_port):
-    player = TicTacToePlayer(server_host, server_port)
+    player = TicTacToeClient(server_host, server_port)
     player.run()
