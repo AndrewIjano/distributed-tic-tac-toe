@@ -1,17 +1,20 @@
-from threading import Thread
-from random import random
-
-from enum import Enum
-
-import socket
-import sys
-from client import opponent_adapter
-
 from client.dt3p_adapter import Dt3pAdapter
 from client.opponent_adapter import OpponentAdapter
 from client.commands import Command
-from client.exceptions import UserNotActive, MoveAlreadyDone, MoveOutOfBounds
+from client.exceptions import (
+    UserNotActive,
+    UserIsInvalid,
+    MoveAlreadyDone,
+    MoveOutOfBounds,
+)
+
 from client.board import Board, Mark
+from threading import Thread
+from random import random
+from enum import Enum
+
+import socket
+import logging
 
 
 class State(Enum):
@@ -25,6 +28,11 @@ class State(Enum):
 
 class TicTacToeClient:
     def __init__(self, server_host, server_port, server_port_tls) -> None:
+        logging.basicConfig(
+            format="%(message)s",
+            level=logging.INFO,
+        )
+
         self.server = Dt3pAdapter(server_host, server_port, server_port_tls)
 
         self.listen_sock = self._get_listen_sock()
@@ -70,7 +78,7 @@ class TicTacToeClient:
                 if command == "BGIN":
                     opponent_username, *_ = args
                     print(
-                        f"\rDeseja iniciar uma partida com '{opponent_username}'? [y/N] ",
+                        f"\rDo you you to start a game with '{opponent_username}'? [y/N] ",
                         end="",
                     )
                     self.state = State.INVITED
@@ -98,16 +106,17 @@ class TicTacToeClient:
                 if command == "ACPT":
                     action, *_ = args
                     if action == "WAIT":
-                        print("waiting...")
+                        print("Waiting...")
                         self.mark = Mark.O
                         self.state = State.WAITING
                     if action == "PLAY":
                         self.mark = Mark.X
+                        print(f"Your turn. You are {self.mark.value}")
                         self.state = State.PLAYING
                     self.board = Board(self.mark)
                     self.opponent.start_measure_delay()
                 elif command == "RFSD":
-                    print(f"game refused :( {command}")
+                    print(f"Game refused")
                     self.state = State.LOGGED_IN
 
             if self.state == State.WAITING:
@@ -119,6 +128,7 @@ class TicTacToeClient:
                         self.opponent.close_connection()
                         self.state = State.LOGGED_IN
                     else:
+                        print(f"Your turn. You are {self.mark.value}")
                         self.state = State.PLAYING
 
                 if command == "ENDD":
@@ -182,12 +192,14 @@ class TicTacToeClient:
             is_player_first = random() > 0.5
             if is_player_first:
                 self.opponent.accept_game_and_wait()
-                self.state = State.PLAYING
                 self.mark = Mark.X
+                print(f"Your turn. You are {self.mark.value}")
+                self.state = State.PLAYING
             else:
                 self.opponent.accept_game_and_play()
-                self.state = State.WAITING
                 self.mark = Mark.O
+                print("Waiting...")
+                self.state = State.WAITING
             self.opponent.start_measure_delay()
             self.board = Board(self.mark)
             return
@@ -232,6 +244,9 @@ class TicTacToeClient:
 
     def _handle_begin(self, opponent_username):
         try:
+            if opponent_username == self.user:
+                raise UserIsInvalid()
+
             opponent_address = self.server.get_user_address(opponent_username)
             self.opponent = OpponentAdapter.from_address(
                 opponent_address, opponent_username
@@ -240,10 +255,12 @@ class TicTacToeClient:
 
             self.state = State.INVITING
 
-            self.opponent_listening_loop = Thread(target=self.listen_opponent, args=())
+            self.opponent_listening_loop = Thread(target=self.listen_opponent)
             self.opponent_listening_loop.start()
         except UserNotActive:
-            print("user is not active!")
+            print("User is not active!")
+        except UserIsInvalid:
+            print("You can't play with yourself!")
 
     def _handle_send(self, row, col):
         try:

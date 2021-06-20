@@ -9,3 +9,7 @@ class MoveOutOfBounds(Exception):
 class MoveAlreadyDone(Exception):
     def __init__(self) -> None:
         pass
+
+class UserIsInvalid(Exception):
+    def __init__(self) -> None:
+        pass

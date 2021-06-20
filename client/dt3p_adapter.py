@@ -1,9 +1,11 @@
-import socket
-from ssl import SSLContext, PROTOCOL_TLS_CLIENT, get_server_certificate
-
 from client.exceptions import UserNotActive
 
+from ssl import SSLContext, PROTOCOL_TLS_CLIENT, get_server_certificate
 
+import socket
+import logging
+
+logger = logging.getLogger("Dt3pAdapter")
 
 
 class Dt3pAdapter:
@@ -16,9 +18,7 @@ class Dt3pAdapter:
         self.context.load_verify_locations("cert.pem")
 
     def add_user(self, username, password):
-        response = self._secure_request(
-            f"USER {username} {password}\n"
-        )
+        response = self._secure_request(f"USER {username} {password}\n")
 
     def login(self, username, password, host, port):
         response = self._secure_request(f"LGIN {username} {password} {host} {port}\n")
@@ -51,21 +51,18 @@ class Dt3pAdapter:
         self._request(f"RSLT {username} {opponent} {int(is_tie)}\n")
 
     def _request(self, message: str):
-        encoded_message = message.encode("ascii")
-        print(f"[Dt3pAdapter] sending message: '{encoded_message}'")
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            s.connect(self.address)
-            s.sendall(encoded_message)
-            response = s.makefile().readline().strip()
-        print(f"[Dt3pAdapter] received: {response}")
-        return response
+        with socket.create_connection(self.address) as s:
+            return self._make_request(s, message)
 
     def _secure_request(self, message: str):
-        encoded_message = message.encode("ascii")
-        print(f"[Dt3pAdapter] TLS sending message: '{encoded_message}'")
         with socket.create_connection(self.secure_address) as sock:
             with self.context.wrap_socket(sock, server_hostname=self.hostname) as tls:
-                tls.sendall(encoded_message)
-                response = tls.makefile().readline().strip()
-        print(f"[Dt3pAdapter] TLS received: {response}")
+                return self._make_request(tls, message)
+
+    def _make_request(self, sock, message):
+        encoded_message = message.encode("ascii")
+        logger.debug(f"sending message: '{encoded_message}'")
+        sock.sendall(encoded_message)
+        response = sock.makefile().readline().strip()
+        logger.debug(f"received: {response}")
         return response

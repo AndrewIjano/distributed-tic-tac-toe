@@ -1,6 +1,11 @@
+from math import log
 from client.exceptions import MoveAlreadyDone, MoveOutOfBounds
 
 from enum import Enum
+
+import logging
+
+logger = logging.getLogger("Board")
 
 
 class Mark(Enum):
@@ -25,11 +30,11 @@ class Board:
 
     def add_move(self, row: str, col: str):
         self._add_move(row, col, self.player_mark)
-        print(f"[Board] add move row {row} col {col}")
+        logger.debug(f"add move row {row} col {col}")
 
     def add_opponent_move(self, row: str, col: str):
         self._add_move(row, col, self.opponent_mark)
-        print(f"[Board] add opponent move row {row} col {col}")
+        logger.debug(f"add opponent move row {row} col {col}")
 
     def _add_move(self, row: str, col: str, mark):
         row = int(row)
