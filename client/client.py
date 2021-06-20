@@ -5,11 +5,12 @@ from enum import Enum
 
 import socket
 import sys
+from client import opponent_adapter
 
 from client.dt3p_adapter import Dt3pAdapter
 from client.opponent_adapter import OpponentAdapter
 from client.commands import Command
-from client.exceptions import UserNotActive
+from client.exceptions import UserNotActive, MoveAlreadyDone, MoveOutOfBounds
 from client.board import Board, Mark
 
 
@@ -60,20 +61,25 @@ class TicTacToeClient:
                 continue
 
             data = connection.makefile().readline().strip()
+            command, *args = data.split("\t")
+
+            if command == "HTBT":
+                connection.sendall(b"200 OK\n")
+
             if self.state == State.LOGGED_IN:
-                if data == "BGIN":
-                    print("\rDeseja iniciar uma partida? [y/N] ", end="")
+                if command == "BGIN":
+                    opponent_username, *_ = args
+                    print(
+                        f"\rDeseja iniciar uma partida com '{opponent_username}'? [y/N] ",
+                        end="",
+                    )
                     self.state = State.INVITED
 
-                    self.opponent = OpponentAdapter(connection)
-                    self.opponent_listening_loop = Thread(
-                        target=self.listen_opponent, args=()
-                    )
+                    self.opponent = OpponentAdapter(connection, opponent_username)
+                    self.opponent_listening_loop = Thread(target=self.listen_opponent)
                     self.opponent_listening_loop.start()
                     continue
 
-                if data == "HTBT":
-                    connection.sendall(b"200 OK\n")
             connection.close()
 
     def listen_opponent(self):
@@ -102,12 +108,13 @@ class TicTacToeClient:
                     self.opponent.start_measure_delay()
                 elif command == "RFSD":
                     print(f"game refused :( {command}")
+                    self.state = State.LOGGED_IN
 
             if self.state == State.WAITING:
                 if command == "SEND":
                     self.board.add_opponent_move(*args)
                     self.board.show()
-                    if self.board.is_opponent_winner():
+                    if self.board.is_game_ended:
                         print("You lose!")
                         self.opponent.close_connection()
                         self.state = State.LOGGED_IN
@@ -123,8 +130,10 @@ class TicTacToeClient:
             input_command = self._get_command()
             try:
                 self._handle_command(*input_command)
+            except TypeError as e:
+                print("Invalid arguments:\n", e)
             except Exception as e:
-                print("Invalid arguments", e)
+                print("An error occurred:\n", e)
 
     def _handle_command(self, *input_command):
         return {
@@ -224,8 +233,10 @@ class TicTacToeClient:
     def _handle_begin(self, opponent_username):
         try:
             opponent_address = self.server.get_user_address(opponent_username)
-            self.opponent = OpponentAdapter.from_address(opponent_address)
-            self.opponent.begin_game()
+            self.opponent = OpponentAdapter.from_address(
+                opponent_address, opponent_username
+            )
+            self.opponent.begin_game(self.user)
 
             self.state = State.INVITING
 
@@ -235,22 +246,24 @@ class TicTacToeClient:
             print("user is not active!")
 
     def _handle_send(self, row, col):
-        self.board.add_move(row, col)
-        self.opponent.send_move(row, col)
-        self.board.show()
+        try:
+            self.board.add_move(row, col)
+            self.opponent.send_move(row, col)
+            self.board.show()
 
-        if self.board.is_player_winner():
-            print("You win!")
-            self.opponent.close_connection()
-            self.server.send_game_result(self.user, "aaa", is_tie=False)
-            self.state = State.LOGGED_IN
-        elif self.board.is_tied():
-            print("It's a tie!")
-            self.opponent.close_connection()
-            self.server.send_game_result(self.user, "aaa", is_tie=True)
-            self.state = State.LOGGED_IN
-        else:
-            self.state = State.WAITING
+            if self.board.is_game_ended:
+                print("It's a tie!" if self.board.is_tie else "You win!")
+                self.opponent.close_connection()
+                self.server.send_game_result(
+                    self.user, self.opponent.username, is_tie=self.board.is_tie
+                )
+                self.state = State.LOGGED_IN
+            else:
+                self.state = State.WAITING
+        except MoveOutOfBounds:
+            print(f"Move {row} {col} is out of bounds!")
+        except MoveAlreadyDone:
+            print(f"Move {row} {col} is already done!")
 
     def _handle_delay(self):
         print(f"Current measured latency:")

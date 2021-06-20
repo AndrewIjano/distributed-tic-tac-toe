@@ -28,7 +28,7 @@ class HeartbeatService(Thread):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             try:
                 s.connect((user.host, int(user.port)))
-                s.sendall(b"HTBT\n")
+                s.sendall(b"HTBT\t\n")
                 response = s.makefile().readline().strip()
                 if response != "200 OK":
                     raise Exception()

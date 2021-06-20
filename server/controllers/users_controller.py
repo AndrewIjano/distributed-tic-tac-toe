@@ -30,10 +30,10 @@ class UsersController:
         self.db.update_one(key=username, update_key="host", update_value=host)
         self.db.update_one(key=username, update_key="port", update_value=port)
 
-    def increment_user_point(self, username: str):
+    def increment_user_point(self, username: str, point: int = 1):
         user = self.db.read_one(key=username, Model=User)
         self.db.update_one(
-            key=username, update_key="points", update_value=user.points + 1
+            key=username, update_key="points", update_value=user.points + point
         )
 
     def set_user_busy(self, username):

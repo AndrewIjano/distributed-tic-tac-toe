@@ -85,20 +85,27 @@ class RequestHandler(BaseRequestHandler):
 
         return bytes(f"200 OK\t{user.host} {user.port}\n", "ascii")
 
-    def _handle_send_game_result(self, username, opponent, is_tie):
-        if not is_tie:
-            self.users_controller.increment_user_point(username)
+    def _handle_send_game_result(self, username_1, username_2, is_tie):
+        # the first username will never be a loser
+        if int(is_tie):
+            self.users_controller.increment_user_point(username_1)
+            self.users_controller.increment_user_point(username_2)
+            winners = (username_1, username_2)
+        else:
+            self.users_controller.increment_user_point(username_1, point=2)
+            winners = username_1
 
-        self.users_controller.set_user_free(username)
-        self.users_controller.set_user_free(opponent)
+        self.users_controller.set_user_free(username_1)
+        self.users_controller.set_user_free(username_2)
 
-        op_user = self.users_controller.get_user(opponent)
+        user_2 = self.users_controller.get_user(username_2)
         logging.info(
             f"game ended "
-            f"({self.host} {username}) "
-            f"({opponent} {op_user.host}) "
-            f"winner={None if is_tie else username}"
+            f"user_1={(self.host, username_1)} "
+            f"user_2={(user_2.host, username_2)} "
+            f"winner={winners}"
         )
+        return b"200 OK\n"
 
     def _get_int(self, data_size: int) -> int:
         return int(self._get_str(data_size))
