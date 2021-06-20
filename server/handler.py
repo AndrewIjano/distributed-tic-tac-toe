@@ -11,13 +11,16 @@ class RequestHandler(BaseRequestHandler):
         super().__init__(*args)
 
     def handle(self) -> None:
-        self.host = self.request.getsockname()[0]
+        self._handle(self.request)
+
+    def _handle(self, client):
+        self.host, _ = client.getsockname()
         logging.info(f"client connected {self.host}")
 
-        command, *args = self.request.makefile().readline().split()
+        command, *args = client.makefile().readline().split()
         command_handler = self._get_command_handler(command)
         response = command_handler(*args)
-        self.request.sendall(response)
+        client.sendall(response)
 
     def _get_command_handler(self, command):
         logging.debug(f"received command {command}")

@@ -23,8 +23,8 @@ class State(Enum):
 
 
 class TicTacToeClient:
-    def __init__(self, server_host, server_port) -> None:
-        self.server = Dt3pAdapter(server_host, server_port)
+    def __init__(self, server_host, server_port, server_port_tls) -> None:
+        self.server = Dt3pAdapter(server_host, server_port, server_port_tls)
 
         self.listen_sock = self._get_listen_sock()
         self.address = self.listen_sock.getsockname()
@@ -277,6 +277,6 @@ class TicTacToeClient:
         return input(f"({self.state.value})-JogoDaVelha> ").strip().split() or [""]
 
 
-def run(server_host, server_port):
-    player = TicTacToeClient(server_host, server_port)
+def run(server_host, server_port, server_port_tls):
+    player = TicTacToeClient(server_host, server_port, server_port_tls)
     player.run()
