@@ -3,6 +3,7 @@ from server.models.user import User
 
 import socket
 import time
+import logging
 from threading import Thread
 
 
@@ -15,10 +16,8 @@ class HeartbeatService(Thread):
 
         self.users_controller = UsersController()
         self.interval=interval
-        print("[HeartbeatService] started")
 
     def _run(self):
-        print("[HeartbeatService] running")
         while True:
             active_users = self.users_controller.get_active_users()
             for user in active_users:
@@ -35,4 +34,4 @@ class HeartbeatService(Thread):
                     raise Exception()
             except:
                 self.users_controller.set_user_inactive(user.username)
-                print(f"[HeartbeatService] user '{user.username}' disconnected")
+                logging.info(f"unexpected client disconnection {user.host}")
