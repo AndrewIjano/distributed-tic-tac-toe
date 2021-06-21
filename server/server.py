@@ -10,6 +10,7 @@ from threading import Thread
 
 logger = logging.getLogger(__name__)
 
+HOST = "localhost"
 
 class Worker(ThreadingTCPServer):
     def __init__(
@@ -29,7 +30,7 @@ class TicTacToeServer:
         logging.basicConfig(
             format="%(asctime)s %(levelname)s %(message)s",
             # filename="server.log",
-            level=logging.DEBUG,
+            level=logging.INFO,
         )
         logging.info("application started")
 
@@ -50,7 +51,7 @@ class TicTacToeServer:
             thread.join()
 
 
-def run(host, port, port_tls):
+def run(port, port_tls):
     TicTacToeServer(
-        server_address=(host, port), server_secure_address=(host, port_tls)
+        server_address=(HOST, port), server_secure_address=(HOST, port_tls)
     ).run()

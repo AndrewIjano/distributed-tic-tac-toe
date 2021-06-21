@@ -1,4 +1,5 @@
 from server.handler import RequestHandler
+from server.models.response_code import ResponseCode
 
 from ssl import SSLContext, PROTOCOL_TLS_SERVER
 
@@ -21,31 +22,31 @@ class SecureRequestHandler(RequestHandler):
             "LOUT": self._handle_logout,
         }[command]
 
-    def _handle_add_user(self, username, password) -> bytes:
+    def _handle_add_user(self, username, password) -> str:
         self.users_controller.add_user(username, password)
         logging.debug(f"new user {username}")
-        return b"201 CREATED"
+        return ResponseCode.CREATED.value
     
-    def _handle_change_password(self, username, old_password, new_password) -> bytes:
+    def _handle_change_password(self, username, old_password, new_password) -> str:
         user = self.users_controller.get_user(username)
         if user is not None and user.password == old_password:
             self.users_controller.update_user_password(username, new_password)
             logging.debug(f"password updated {username}")
-            return b"200 OK\n"
-        return b"401 UNAUTHENTICATED\n"
+            return ResponseCode.OK.value
+        return ResponseCode.UNAUTHENTICATED.value
 
-    def _handle_login(self, username, password, host, port) -> bytes:
+    def _handle_login(self, username, password, host, port) -> str:
         user = self.users_controller.get_user(username)
         if user is not None and user.password == password:
             self.users_controller.set_user_active(username)
             self.users_controller.update_user_address(username, host, port)
             logging.info(f"login succeeded {username} {self.host}")
-            return b"200 OK\n"
+            return ResponseCode.OK.value
 
         logging.info(f"login failed {username} {self.host}")
-        return b"401 UNAUTHENTICATED\n"
+        return ResponseCode.UNAUTHENTICATED.value
 
-    def _handle_logout(self, username, password) -> bytes:
+    def _handle_logout(self, username, password) -> str:
         user = self.users_controller.get_user(username)
         if user.password == password:
             logging.debug(f"new logout {username}")
@@ -53,6 +54,6 @@ class SecureRequestHandler(RequestHandler):
             self.users_controller.set_user_inactive(username)
             self.users_controller.update_user_address(username, "", "")
             logging.info(f"client disconnected {self.host}")
-            return b"200 OK\n"
+            return ResponseCode.OK.value
 
-        return b"401 UNAUTHENTICATED\n"
+        return ResponseCode.UNAUTHENTICATED.value

@@ -17,50 +17,56 @@ class Dt3pAdapter:
         self.context.load_verify_locations("cert/cert.pem")
 
     def add_user(self, username, password):
-        response = self._secure_request(f"USER {username} {password}\n")
+        response = self._secure_request(f"USER {username} {password}")
 
     def change_password(self, username, old_password, new_password):
         response = self._secure_request(
-            f"PASS {username} {old_password} {new_password}\n"
+            f"PASS {username} {old_password} {new_password}"
         )
 
-        if response == "401 UNAUTHENTICATED":
+        if response == "401_UNAUTHENTICATED":
             raise WrongPassword()
 
     def login(self, username, password, host, port):
-        response = self._secure_request(f"LGIN {username} {password} {host} {port}\n")
+        response = self._secure_request(f"LGIN {username} {password} {host} {port}")
 
-        if response == "401 UNAUTHENTICATED":
+        if response == "401_UNAUTHENTICATED":
             raise Unauthenticated()
 
     def logout(self, username, password):
-        response = self._secure_request(f"LOUT {username} {password}\n")
+        response = self._secure_request(f"LOUT {username} {password}")
 
-        if response == "401 UNAUTHENTICATED":
+        if response == "401_UNAUTHENTICATED":
             raise Unauthenticated()
 
     def list_active_users(self):
-        response = self._request(f"LIST\n")
-        users_raw = (line.split() for line in response.strip().split("\t"))
+        response = self._request("LIST")
+
+        response_code, *lines = response.split(" ")
+        print(lines)
+        users_raw = (line.split("\t") for line in lines)
         return [
             (username, "free" if is_free else "busy") for username, is_free in users_raw
         ]
 
     def list_leaders(self):
-        response = self._request(f"LEAD\n")
-        users_raw = (line.split() for line in response.strip().split("\t"))
+        response = self._request("LEAD")
+
+        response_code, *lines = response.split(" ")
+        users_raw = (line.split("\t") for line in lines)
         return [(username, int(points)) for username, points in users_raw]
 
     def get_user_address(self, username):
-        response = self._request(f"ADDR {username}\n")
-        response_code, *body = response.split("\t")
-        if response_code == "200 OK":
-            host, port_str = body[0].split()
+        response = self._request(f"ADDR {username}")
+        
+        response_code, *body = response.split(" ")
+        if response_code == "200_OK":
+            host, port_str = body
             return (host, int(port_str))
         raise UserNotActive()
 
     def send_game_result(self, username, opponent, is_tie):
-        self._request(f"RSLT {username} {opponent} {int(is_tie)}\n")
+        self._request(f"RSLT {username} {opponent} {int(is_tie)}")
 
     def _request(self, message: str):
         with socket.create_connection(self.address) as s:
@@ -72,7 +78,7 @@ class Dt3pAdapter:
                 return self._make_request(tls, message)
 
     def _make_request(self, sock, message):
-        encoded_message = message.encode("ascii")
+        encoded_message = bytes(f"{message}\n", "ascii")
         logger.debug(f"sending message: '{encoded_message}'")
         sock.sendall(encoded_message)
         response = sock.makefile().readline().strip()

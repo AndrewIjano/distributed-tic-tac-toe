@@ -1,8 +1,10 @@
 FROM python:3.9
 
-COPY . /usr/src/server/
+RUN mkdir -p /usr/src/server
 WORKDIR /usr/src/server
+COPY . .
 
-EXPOSE 8000/tcp
+EXPOSE 5000/tcp
+EXPOSE 5001/tcp
 
-CMD ["python", "server.py", "5000"]
+CMD ["python", "server.py", "5000", "5001"]

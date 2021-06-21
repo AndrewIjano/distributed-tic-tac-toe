@@ -12,32 +12,39 @@ class OpponentAdapter:
         self.delays = deque([0, 0, 0])
         self.is_connected = True
         self.username = username
+        self.start = time()
 
     def begin_game(self, player_username):
-        self._send(f"BGIN\t{player_username}\n")
+        self._send(f"BGIN {player_username}")
 
     def send_move(self, row, col):
-        self._send(f"SEND\t{row} {col}\n")
+        self._send(f"SEND {row} {col}")
 
     def accept_game_and_wait(self):
-        self._send("ACPT\tWAIT\n")
+        self._send("ACPT WAIT")
 
     def accept_game_and_play(self):
-        self._send("ACPT\tPLAY\n")
+        self._send("ACPT PLAY")
 
     def refuse_game(self):
-        self._send("RFSD\t\n")
+        self._send("RFSD")
     
     def end_game(self):
-        self._send("ENDD\t\n")
+        self._send("ENDD")
         self.close_connection()
+    
+    def handle_ping(self, command):
+        if command == "PING":
+            self.send_pong()
+        if command == "PONG":
+            self.receive_pong()
 
     def send_ping(self):
-        self._send("PING\t\n")
+        self._send("PING")
         self.start = time()
 
     def send_pong(self):
-        self._send("PONG\t\n")
+        self._send("PONG")
     
     def receive_pong(self):
         new_measure = (time() - self.start) * 1000
@@ -47,11 +54,12 @@ class OpponentAdapter:
     def _send(self, message: str):
         if not self.is_connected:
             return
-        self.connection.sendall(bytes(message, "ascii"))
+        encoded_message = bytes(f"{message}\n", "ascii")
+        self.connection.sendall(encoded_message)
 
     def _receive(self) -> str:
         if not self.is_connected:
-            return "\t\n"
+            return "\n"
         return self.connection.makefile().readline()
 
     def start_measure_delay(self):
@@ -66,11 +74,8 @@ class OpponentAdapter:
         conn_input = self._receive().replace("\n", "")
         if conn_input == "":
             return "", [""]
-        command, args = conn_input.split("\t")
-        return command, args.split()
-
-    def has_accepted_game(self, response):
-        return response.split()[0] == "ACPT"
+        return conn_input.split()
+        # return command, args.split()
 
     def close_connection(self):
         self.is_connected = False

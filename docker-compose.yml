@@ -5,26 +5,6 @@ services:
       context: .
       dockerfile: ./Dockerfile.server
     ports:
-      - "8000:8000"
-    volumes:
-      - .:/code
-  client1:
-    build:
-      context: .
-      dockerfile: ./Dockerfile.client
-
-    ports:
-      - "5000:5000"
-      - "5001:5001"
-  client2:
-    build:
-      context: .
-      dockerfile: ./Dockerfile.client
-    ports:
       - "5000:5000"
       - "5001:5001"
 
-networks:
-  default:
-  external:
-    name: scoring_default

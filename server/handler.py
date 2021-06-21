@@ -1,4 +1,5 @@
 from server.controllers.users_controller import UsersController
+from server.models.response_code import ResponseCode
 
 from socketserver import BaseRequestHandler
 
@@ -20,7 +21,8 @@ class RequestHandler(BaseRequestHandler):
         command, *args = client.makefile().readline().split()
         command_handler = self._get_command_handler(command)
         response = command_handler(*args)
-        client.sendall(response)
+        encoded_response = bytes(f"{response}\n", "ascii")
+        client.sendall(encoded_response)
 
     def _get_command_handler(self, command):
         logging.debug(f"received command {command}")
@@ -31,28 +33,26 @@ class RequestHandler(BaseRequestHandler):
             "RSLT": self._handle_send_game_result,
         }[command]
 
-    def _handle_list_active_users(self) -> bytes:
+    def _handle_list_active_users(self) -> str:
         active_users = self.users_controller.get_active_users()
-
-        return bytes(
-            "\t".join(f"{u.username} {int(u.is_free)}" for u in active_users),
-            "ascii",
+        encoded_user_list = " ".join(
+            f"{u.username}\t{int(u.is_free)}" for u in active_users
         )
+        return f"{ResponseCode.OK.value} {encoded_user_list}"
 
-    def _handle_list_leaders(self) -> bytes:
+    def _handle_list_leaders(self) -> str:
         users = self.users_controller.get_users()
         users_sorted_by_points = sorted(users, key=lambda u: u.points, reverse=True)
-        return bytes(
-            "\t".join(f"{u.username} {u.points}" for u in users_sorted_by_points),
-            "ascii",
+        encoded_leaders_list = " ".join(
+            f"{u.username}\t{u.points}" for u in users_sorted_by_points
         )
+        return f"{ResponseCode.OK.value} {encoded_leaders_list}"
 
-    def _handle_get_user_address(self, username) -> bytes:
+    def _handle_get_user_address(self, username) -> str:
         user = self.users_controller.get_user(username)
         if not user.is_active:
-            return b"402 NOT ACTIVE\n"
-
-        return bytes(f"200 OK\t{user.host} {user.port}\n", "ascii")
+            return ResponseCode.NOT_ACTIVE.value
+        return f"{ResponseCode.OK.value} {user.host} {user.port}"
 
     def _handle_send_game_result(self, username_1, username_2, is_tie):
         # the first username will never be a loser
@@ -74,10 +74,4 @@ class RequestHandler(BaseRequestHandler):
             f"user_2={(user_2.host, username_2)} "
             f"winner={winners}"
         )
-        return b"200 OK\n"
-
-    def _get_int(self, data_size: int) -> int:
-        return int(self._get_str(data_size))
-
-    def _get_str(self, data_size: int) -> str:
-        return self.request.recv(data_size).decode("ascii").strip()
+        return ResponseCode.OK.value

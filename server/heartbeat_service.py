@@ -1,5 +1,6 @@
 from server.controllers.users_controller import UsersController
 from server.models.user import User
+from server.models.response_code import ResponseCode
 
 import socket
 import time
@@ -15,7 +16,7 @@ class HeartbeatService(Thread):
         super().__init__(target=self._run)
 
         self.users_controller = UsersController()
-        self.interval=interval
+        self.interval = interval
 
     def _run(self):
         while True:
@@ -28,9 +29,9 @@ class HeartbeatService(Thread):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             try:
                 s.connect((user.host, int(user.port)))
-                s.sendall(b"HTBT\t\n")
+                s.sendall(b"HTBT\n")
                 response = s.makefile().readline().strip()
-                if response != "200 OK":
+                if response != ResponseCode.OK.value:
                     raise Exception()
             except:
                 self.users_controller.set_user_inactive(user.username)
