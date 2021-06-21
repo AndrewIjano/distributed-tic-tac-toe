@@ -14,8 +14,7 @@ class Dt3pAdapter:
         self.address = (host, port)
         self.secure_address = (host, port_tls)
         self.context = SSLContext(PROTOCOL_TLS_CLIENT)
-        # certificate = get_server_certificate(self.secure_address)
-        self.context.load_verify_locations("cert.pem")
+        self.context.load_verify_locations("cert/cert.pem")
 
     def add_user(self, username, password):
         response = self._secure_request(f"USER {username} {password}\n")
