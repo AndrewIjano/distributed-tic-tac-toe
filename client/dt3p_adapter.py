@@ -1,4 +1,4 @@
-from client.exceptions import UserNotActive
+from client.exceptions import UserNotActive, WrongPassword, Unauthenticated
 
 from ssl import SSLContext, PROTOCOL_TLS_CLIENT, get_server_certificate
 
@@ -19,12 +19,25 @@ class Dt3pAdapter:
     def add_user(self, username, password):
         response = self._secure_request(f"USER {username} {password}\n")
 
+    def change_password(self, username, old_password, new_password):
+        response = self._secure_request(
+            f"PASS {username} {old_password} {new_password}\n"
+        )
+
+        if response == "401 UNAUTHENTICATED":
+            raise WrongPassword()
+
     def login(self, username, password, host, port):
         response = self._secure_request(f"LGIN {username} {password} {host} {port}\n")
-        return response == "200 OK"
+
+        if response == "401 UNAUTHENTICATED":
+            raise Unauthenticated()
 
     def logout(self, username, password):
         response = self._secure_request(f"LOUT {username} {password}\n")
+
+        if response == "401 UNAUTHENTICATED":
+            raise Unauthenticated()
 
     def list_active_users(self):
         response = self._request(f"LIST\n")

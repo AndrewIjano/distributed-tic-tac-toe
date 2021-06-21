@@ -6,6 +6,8 @@ from client.exceptions import (
     UserIsInvalid,
     MoveAlreadyDone,
     MoveOutOfBounds,
+    WrongPassword,
+    Unauthenticated,
 )
 
 from client.board import Board, Mark
@@ -165,6 +167,7 @@ class TicTacToeClient:
 
     def _handle_auth_command(self, command, *args):
         return {
+            Command.PASSWORD: self._handle_change_password,
             Command.LIST: self._handle_list,
             Command.LEADERS: self._handle_leaders,
             Command.BEGIN: self._handle_begin,
@@ -210,21 +213,31 @@ class TicTacToeClient:
     def _handle_add_user(self, user, password):
         self.server.add_user(user, password)
 
+    def _handle_change_password(self, old_password, new_password):
+        try:
+            self.server.change_password(self.user, old_password, new_password)
+            self.password = new_password
+        except WrongPassword:
+            print("The current password is wrong")
+
     def _handle_login(self, user, password):
-        host, port = self.address
-        success = self.server.login(user, password, host, port)
-        if success:
+        try:
+            host, port = self.address
+            self.server.login(user, password, host, port)
             self.user = user
             self.password = password
             self.state = State.LOGGED_IN
-        else:
+        except Unauthenticated:
             print("Login failed")
 
     def _handle_logout(self):
-        self.server.logout(self.user, self.password)
-        self.user = None
-        self.password = None
-        self.state = State.LOGGED_OUT
+        try:
+            self.server.logout(self.user, self.password)
+            self.user = None
+            self.password = None
+            self.state = State.LOGGED_OUT
+        except Unauthenticated:
+            print("Logout failed")
 
     def _handle_list(self):
         active_users = self.server.list_active_users()

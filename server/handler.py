@@ -25,42 +25,11 @@ class RequestHandler(BaseRequestHandler):
     def _get_command_handler(self, command):
         logging.debug(f"received command {command}")
         return {
-            "USER": self._handle_add_user,
-            "LGIN": self._handle_login,
-            "LOUT": self._handle_logout,
             "LIST": self._handle_list_active_users,
             "LEAD": self._handle_list_leaders,
             "ADDR": self._handle_get_user_address,
             "RSLT": self._handle_send_game_result,
         }[command]
-
-    def _handle_add_user(self, username, password) -> bytes:
-        self.users_controller.add_user(username, password)
-        logging.debug(f"new user {username}")
-        return b"201 CREATED"
-
-    def _handle_login(self, username, password, host, port) -> bytes:
-        user = self.users_controller.get_user(username)
-        if user is not None and user.password == password:
-            self.users_controller.set_user_active(username)
-            self.users_controller.update_user_address(username, host, port)
-            logging.info(f"login succeeded {username} {self.host}")
-            return b"200 OK\n"
-
-        logging.info(f"login failed {username} {self.host}")
-        return b"401 UNAUTHENTICATED"
-
-    def _handle_logout(self, username, password) -> bytes:
-        user = self.users_controller.get_user(username)
-        if user.password == password:
-            logging.debug(f"new logout {username}")
-
-            self.users_controller.set_user_inactive(username)
-            self.users_controller.update_user_address(username, "", "")
-            logging.info(f"client disconnected {self.host}")
-            return b"200 OK\n"
-
-        return b"401 UNAUTHENTICATED"
 
     def _handle_list_active_users(self) -> bytes:
         active_users = self.users_controller.get_active_users()

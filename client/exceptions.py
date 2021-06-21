@@ -13,3 +13,11 @@ class MoveAlreadyDone(Exception):
 class UserIsInvalid(Exception):
     def __init__(self) -> None:
         pass
+
+class WrongPassword(Exception):
+    def __init__(self) -> None:
+        pass
+
+class Unauthenticated(Exception):
+    def __init__(self) -> None:
+        pass

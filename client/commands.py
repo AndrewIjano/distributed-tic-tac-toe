@@ -3,6 +3,7 @@ from enum import Enum
 
 class Command(Enum):
     ADD_USER = "adduser"
+    PASSWORD = "passwd"
     LIST = "list"
     LEADERS = "leaders"
     LOGIN = "login"

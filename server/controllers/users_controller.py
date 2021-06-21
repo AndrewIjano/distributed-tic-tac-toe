@@ -29,6 +29,9 @@ class UsersController:
     def update_user_address(self, username, host, port):
         self.db.update_one(key=username, update_key="host", update_value=host)
         self.db.update_one(key=username, update_key="port", update_value=port)
+    
+    def update_user_password(self, username, password):
+        self.db.update_one(key=username, update_key="password", update_value=password)
 
     def increment_user_point(self, username: str, point: int = 1):
         user = self.db.read_one(key=username, Model=User)
