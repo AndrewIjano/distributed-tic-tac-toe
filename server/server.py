@@ -29,7 +29,7 @@ class TicTacToeServer:
     ) -> None:
         logging.basicConfig(
             format="%(asctime)s %(levelname)s %(message)s",
-            # filename="server.log",
+            # filename="server.log", # uncomment for logging in file
             level=logging.INFO,
         )
         logging.info("application started")
